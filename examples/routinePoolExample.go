@@ -11,6 +11,7 @@ func main() {
 	pool.Add(routinePool.Job(aa))
 	pool.Add(routinePool.Job(aa))
 	pool.Add(routinePool.Job(aa))
+
 	fmt.Println(pool.Size())
 	// fixpool := routinePool.NewFixRoutinePool(1, 20)
 	// f := routinePool.Job(aa)
@@ -21,6 +22,9 @@ func main() {
 }
 
 func aa(...interface{}) interface{} {
+	time.Sleep(1000000000)
+
 	fmt.Println("aaaa")
+
 	return nil
 }

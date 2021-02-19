@@ -1,7 +1,7 @@
 package routinePool
 
 import (
-	"sync"
+	"magicbox/msync"
 )
 
 const (
@@ -14,7 +14,7 @@ const (
 func NewRoutinePool(size int) Pool {
 	pool := Pool{
 		size: size,
-		wg:   &sync.WaitGroup{},
+		wg:   msync.New(),
 	}
 	pool.start()
 	return pool
@@ -23,7 +23,7 @@ func NewFixRoutinePool(size int, bufferSize int) FixPool {
 	pool := FixPool{
 		size:        size,
 		chanSize:    bufferSize,
-		wg:          sync.WaitGroup{},
+		wg:          msync.New(),
 		job2runChan: make(chan Job, bufferSize),
 		commandChan: make(chan int),
 	}

@@ -2,14 +2,13 @@ package routinePool
 
 import (
 	"errors"
-	"sync"
-	"unsafe"
+	"magicbox/msync"
 )
 
 //通用池子，新来一个作业就会直接起一个goruntine，超过池子的数量就会报错
 type Pool struct {
 	size int
-	wg   *sync.WaitGroup
+	wg   *msync.MwaitGroup
 }
 
 func (p *Pool) start() {
@@ -19,9 +18,8 @@ func (p *Pool) start() {
 		}()
 	}
 }
-func (p *Pool) Size() int32 {
-	state := unsafe.Sizeof(p.wg)
-	return int32(state >> 32)
+func (p *Pool) Size() int64 {
+	return p.wg.Size()
 }
 func (p *Pool) Add(j Job) {
 	w := Worker{
@@ -40,7 +38,7 @@ func (p *Pool) Wait() {
 type FixPool struct {
 	size        int
 	chanSize    int
-	wg          sync.WaitGroup
+	wg          *msync.MwaitGroup
 	job2runChan chan Job
 	commandChan chan int
 }
