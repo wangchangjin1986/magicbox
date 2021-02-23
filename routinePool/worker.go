@@ -36,10 +36,12 @@ func (w *FixWorker) run(pool *FixPool) {
 			case command := <-pool.commandChan:
 				switch command {
 				case CLOSE:
-					break
+					goto exit
 				}
 			}
 		}
-
+	exit:
+		return
 	}()
+
 }

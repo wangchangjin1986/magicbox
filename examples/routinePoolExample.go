@@ -6,19 +6,19 @@ import (
 	"time"
 )
 
-func main() {
+func simplePool() int64 {
 	pool := routinePool.NewRoutinePool(10)
 	pool.Add(routinePool.Job(aa))
 	pool.Add(routinePool.Job(aa))
 	pool.Add(routinePool.Job(aa))
-
-	fmt.Println(pool.Size())
-	// fixpool := routinePool.NewFixRoutinePool(1, 20)
-	// f := routinePool.Job(aa)
-	// fixpool.Add(f)
-	// fixpool.Add(f)
-	// fixpool.Add(f)
-	time.Sleep(10000000000000)
+	return pool.Size()
+}
+func fixPool() {
+	fixpool := routinePool.NewFixRoutinePool(1, 20)
+	f := routinePool.Job(aa)
+	fixpool.Add(f)
+	fixpool.Add(f)
+	fixpool.Add(f)
 }
 
 func aa(...interface{}) interface{} {

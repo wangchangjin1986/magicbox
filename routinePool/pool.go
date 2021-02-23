@@ -66,6 +66,9 @@ func (f *FixPool) Close() {
 	for i := 0; i < f.size; i++ {
 		f.commandChan <- CLOSE
 	}
+	f.wg.Wait()
+	close(f.commandChan)
+	close(f.job2runChan)
 }
 func (f *FixPool) wait() {
 	f.wg.Wait()
