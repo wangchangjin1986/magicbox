@@ -21,7 +21,7 @@ type TimeWheel struct {
 	// 当前指针指向时间
 	currentTime int64 // in milliseconds
 	// 时间格列表
-	buckets []*bucket
+	buckets []*bucketTimeWheel
 	// 延迟队列
 	queue *BlockingDelayQueue
 
@@ -41,27 +41,24 @@ func NewTimingWheel(tick time.Duration, wheelSize int64) *TimeWheel {
 	if tickMs <= 0 {
 		panic(errors.New("tick must be greater than or equal to 1ms"))
 	}
-
-	startMs := util.MsToUTCTime(time.Now().UTC())
-
 	return newTimingWheel(
 		tickMs,
 		wheelSize,
-		startMs,
+		util.TimeToMs(time.Now()),
 		NewBlockingDelayQueue(int(wheelSize)),
 	)
 }
 
 // newTimingWheel is an internal helper function that really creates an instance of TimingWheel.
 func newTimingWheel(tickMs int64, wheelSize int64, startMs int64, queue *BlockingDelayQueue) *TimeWheel {
-	buckets := make([]*bucket, wheelSize)
+	buckets := make([]*bucketTimeWheel, wheelSize)
 	for i := range buckets {
-		buckets[i] = newBucket()
+		buckets[i] = newTimeWheelBucket()
 	}
 	return &TimeWheel{
 		tick:        tickMs,
 		wheelSize:   wheelSize,
-		currentTime: truncate(startMs, tickMs),
+		currentTime: util.Truncate(startMs, tickMs),
 		interval:    tickMs * wheelSize,
 		buckets:     buckets,
 		queue:       queue,
@@ -70,7 +67,7 @@ func newTimingWheel(tickMs int64, wheelSize int64, startMs int64, queue *Blockin
 }
 
 // add inserts the timer t into the current timing wheel.
-func (tw *TimeWheel) add(t *time.Timer) bool {
+func (tw *TimeWheel) add(t *timerTimeWheel) bool {
 	currentTime := atomic.LoadInt64(&tw.currentTime)
 	// 已经过期
 	if t.expiration < currentTime+tw.tick {
@@ -118,13 +115,13 @@ func (tw *TimeWheel) add(t *time.Timer) bool {
 			overflowWheel = atomic.LoadPointer(&tw.overflowWheel)
 		}
 		// 往上递归
-		return (*TimingWheel)(overflowWheel).add(t)
+		return (*TimeWheel)(overflowWheel).add(t)
 	}
 }
 
 // addOrRun inserts the timer t into the current timing wheel, or run the
 // timer's task if it has already expired.
-func (tw *TimeWheel) addOrRun(t *Timer) {
+func (tw *TimeWheel) addOrRun(t *timerTimeWheel) {
 	// Already expired
 	if !tw.add(t) {
 		// Like the standard time.AfterFunc (https://golang.org/pkg/time/#AfterFunc),
@@ -139,7 +136,7 @@ func (tw *TimeWheel) advanceClock(expiration int64) {
 	// 过期时间大于等于（当前时间+tick）
 	if expiration >= currentTime+tw.tick {
 		// 将currentTime设置为expiration，从而推进currentTime
-		currentTime = truncate(expiration, tw.tick)
+		currentTime = util.Truncate(expiration, tw.tick)
 		atomic.StoreInt64(&tw.currentTime, currentTime)
 
 		// Try to advance the clock of the overflow wheel if present
@@ -154,27 +151,33 @@ func (tw *TimeWheel) advanceClock(expiration int64) {
 // Start starts the current timing wheel.
 func (tw *TimeWheel) Start() {
 	// Poll会执行一个无限循环，将到期的元素放入到queue的C管道中
-	tw.waitGroup.Wrap(func() {
+	tw.wg.Add(1)
+	go func() {
 		tw.queue.Poll(tw.exitC, func() int64 {
-			return timeToMs(time.Now().UTC())
+			return util.TimeToMs(time.Now().UTC())
 		})
-	})
+		tw.wg.Done()
+	}()
+
 	// 开启无限循环获取queue中C的数据
-	tw.waitGroup.Wrap(func() {
+	tw.wg.Add(1)
+	go func() {
 		for {
 			select {
 			// 从队列里面出来的数据都是到期的bucket
 			case elem := <-tw.queue.C:
-				b := elem.(*bucket)
+				b := elem.(*bucketTimeWheel)
 				// 时间轮会将当前时间 currentTime 往前移动到 bucket的到期时间
 				tw.advanceClock(b.Expiration())
 				// 取出bucket队列的数据，并调用addOrRun方法执行
 				b.Flush(tw.addOrRun)
 			case <-tw.exitC:
+				tw.wg.Done()
 				return
 			}
 		}
-	})
+	}()
+
 }
 
 // Stop stops the current timing wheel.
@@ -184,14 +187,14 @@ func (tw *TimeWheel) Start() {
 // know whether the task is completed, it must coordinate with the task explicitly.
 func (tw *TimeWheel) Stop() {
 	close(tw.exitC)
-	tw.waitGroup.Wait()
+	tw.wg.Wait()
 }
 
 // AfterFunc waits for the duration to elapse and then calls f in its own goroutine.
 // It returns a Timer that can be used to cancel the call using its Stop method.
-func (tw *TimeWheel) AfterFunc(d time.Duration, f func()) *Timer {
-	t := &Timer{
-		expiration: timeToMs(time.Now().UTC().Add(d)),
+func (tw *TimeWheel) AfterFunc(d time.Duration, f func()) *timerTimeWheel {
+	t := &timerTimeWheel{
+		expiration: util.TimeToMs(time.Now().UTC().Add(d)),
 		task:       f,
 	}
 	tw.addOrRun(t)
@@ -222,7 +225,7 @@ type Scheduler interface {
 // Afterwards, it will ask the next execution time each time f is about to
 // be executed, and f will be called at the next execution time if the time
 // is non-zero.
-func (tw *TimeWheel) ScheduleFunc(s Scheduler, f func()) (t *timer) {
+func (tw *TimeWheel) ScheduleFunc(s Scheduler, f func()) (t *timerTimeWheel) {
 	expiration := s.Next(time.Now().UTC())
 	if expiration.IsZero() {
 		// No time is scheduled, return nil.

@@ -25,11 +25,11 @@ type timerTimeWheel struct {
 	element *list.Element
 }
 
-func (t *timerTimeWheel) getBucket() *bucket {
-	return (*bucket)(atomic.LoadPointer(&t.b))
+func (t *timerTimeWheel) getBucket() *bucketTimeWheel {
+	return (*bucketTimeWheel)(atomic.LoadPointer(&t.b))
 }
 
-func (t *timerTimeWheel) setBucket(b *bucket) {
+func (t *timerTimeWheel) setBucket(b *bucketTimeWheel) {
 	atomic.StorePointer(&t.b, unsafe.Pointer(b))
 }
 
@@ -69,7 +69,7 @@ type bucketTimeWheel struct {
 	timers *list.List
 }
 
-func newTimeWheelBucket() *bucket {
+func newTimeWheelBucket() *bucketTimeWheel {
 	return &bucketTimeWheel{
 		timers:     list.New(),
 		expiration: -1,
@@ -94,7 +94,7 @@ func (b *bucketTimeWheel) Add(t *timerTimeWheel) {
 	b.mu.Unlock()
 }
 
-func (b *bucketTimeWheel) remove(t *Timer) bool {
+func (b *bucketTimeWheel) remove(t *timerTimeWheel) bool {
 	if t.getBucket() != b {
 		// If remove is called from t.Stop, and this happens just after the timing wheel's goroutine has:
 		//     1. removed t from b (through b.Flush -> b.remove)
@@ -103,7 +103,7 @@ func (b *bucketTimeWheel) remove(t *Timer) bool {
 		// In either case, the returned value does not equal to b.
 		return false
 	}
-	b.timerTimeWheel.Remove(t.element)
+	b.timers.Remove(t.element)
 	t.setBucket(nil)
 	t.element = nil
 	return true
@@ -116,11 +116,11 @@ func (b *bucketTimeWheel) Remove(t *timerTimeWheel) bool {
 }
 
 func (b *bucketTimeWheel) Flush(reinsert func(*timerTimeWheel)) {
-	var ts []*Timer
+	var ts []*timerTimeWheel
 
 	b.mu.Lock()
 	// 循环获取bucket队列节点
-	for e := b.timerTimeWheel.Front(); e != nil; {
+	for e := b.timers.Front(); e != nil; {
 		next := e.Next()
 
 		t := e.Value.(*timerTimeWheel)
