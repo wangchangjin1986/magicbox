@@ -28,7 +28,7 @@ type TimeWheel struct {
 	// The higher-level overflow wheel.
 	//
 	// NOTE: This field may be updated and read concurrently, through Add().
-	// 上级的时间轮饮用
+	// 上级的时间轮的引用
 	overflowWheel unsafe.Pointer // type: *TimingWheel
 
 	exitC chan struct{}

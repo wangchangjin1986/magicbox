@@ -1,6 +1,7 @@
 package routinePool
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -23,8 +24,8 @@ type FixWorker struct {
 }
 
 func (w *FixWorker) run(pool *FixPool) {
+	defer pool.wg.Done()
 	go func() {
-		defer pool.wg.Done()
 		for {
 			if len(*w.job2runChan) == 0 {
 				time.Sleep(1000)
@@ -34,6 +35,7 @@ func (w *FixWorker) run(pool *FixPool) {
 			case job2run := <-pool.job2runChan:
 				job2run()
 			case command := <-pool.commandChan:
+				fmt.Println("exit")
 				switch command {
 				case CLOSE:
 					goto exit

@@ -63,9 +63,6 @@ func (f *FixPool) Add(j Job) error {
 	return nil
 }
 func (f *FixPool) Close() {
-	for i := 0; i < f.size; i++ {
-		f.commandChan <- CLOSE
-	}
 	f.wg.Wait()
 	close(f.commandChan)
 	close(f.job2runChan)

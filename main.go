@@ -11,11 +11,20 @@ func main() {
 	f := routinePool.Job(aa)
 	pool.Add(f)
 	pool.Add(f)
-	pool.Add(f)
-	time.Sleep(10000000000000)
+
+	m := routinePool.Job(bb)
+	pool.Add(m)
+
+	time.Sleep(1 * time.Second)
+	pool.Close()
 }
 
 func aa(...interface{}) interface{} {
 	fmt.Println("aaaa")
+	return nil
+}
+func bb(...interface{}) interface{} {
+	time.Sleep(5 * time.Second)
+	fmt.Println("bbbb")
 	return nil
 }
