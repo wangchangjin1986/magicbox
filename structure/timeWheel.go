@@ -32,7 +32,7 @@ type TimeWheel struct {
 	overflowWheel unsafe.Pointer // type: *TimingWheel
 
 	exitC chan struct{}
-	wg    msync.MwaitGroup
+	wg    *msync.MwaitGroup
 }
 
 // NewTimingWheel creates an instance of TimingWheel with the given tick and wheelSize.
@@ -63,6 +63,7 @@ func newTimingWheel(tickMs int64, wheelSize int64, startMs int64, queue *Blockin
 		buckets:     buckets,
 		queue:       queue,
 		exitC:       make(chan struct{}),
+		wg:          msync.New(),
 	}
 }
 
