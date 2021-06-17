@@ -1,4 +1,4 @@
-package main
+package quiz
 
 import (
 	"fmt"
@@ -24,7 +24,4 @@ func question3() {
 	r := *p
 	r[0] = 11
 	fmt.Println(s[0])
-}
-func main() {
-	question3()
 }
