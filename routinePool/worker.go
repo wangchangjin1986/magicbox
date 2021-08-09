@@ -13,6 +13,9 @@ type Worker struct {
 }
 
 func (w *Worker) run(pool *Pool) {
+	if pool == nil {
+		return
+	}
 	go func() {
 		defer pool.wg.Done()
 		w.job2run()
