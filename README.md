@@ -12,6 +12,8 @@ goroutine pool,目前支持
 * (1)PriorityQueue，优先级队列，按照指定优先级出队，目前是按照priority的值从小到大的顺序出队列
 * (2)BlockingDelayQueue，无界阻塞队列，基于PriorityQueue实现的阻塞队列，到执行时间的队列元素统一输出到chan C中，如果没有到期的元素，则队列处于阻塞状态，直到下一个到期元素的时间到达；（目前待优化，缩短sleep状态时新增元素处理的等待时长）
 * (3)TimeWheel，时间轮，拷贝自https://www.luozhiyun.com/archives/444
+### util
+* (1)Interceptor, 提供通过反射实现的类似AOP切面能力，在函数前后提供增强能力
 
 ### go语言守则
 #### Go 箴言
